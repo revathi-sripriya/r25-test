@@ -1,41 +1,59 @@
-#include <stdint.h>
-#include <stdio.h>
-#include <serial.h>
-#include <parsing.h>
 
-int main(int argc, char** argv) {
-	char *port_name_1 = argv[1]; // SBUS 
-	char *port_name_2 = argv[2]; // Sabertooth1
 
-	FILE *sbus; 
-	FILE *sabertooth;
+	int main(int argc, char** argv) {
+    char *port_name_1 = argv[1]; // SBUS 
+    char *port_name_2 = argv[2]; // Sabertooth1
+    const char *port_name_1 = "/dev/ttyUSB0"; // Replace with your SBUS port
+    const char *port_name_2 = "/dev/ttyUSB1"; // Replace with your Sabertooth port
 
-	// to store sbus packets
-	uint8_t sbus_packet[15];
+    FILE *sbus;
+    FILE *sabertooth;
 
-	// to store value of indiviual RC channel
-	uint16_t *channel;
+    // Open serial ports
+    sbus = open_file(port_name_1, "rb");
+    sabertooth = open_file(port_name_2, "wb"); // Use "wb" for binary write
 
-	// pwm value after interpolation 
-	int pwm;
+    uint8_t sbus_packet[25]; // Increased size to 25
 
-	// opening serial port for serial communication with Sabertooth and SBUS
-	sbus = open_file(port_name_1, "rb");
-	sabertooth = open_file(port_name_2, "w+");
-	
-	// read data from RC transmitter using sbus
-	read_SBUS(sbus_packet, uint8_t, 25, sbus);
+    if (!sbus || !sabertooth) {
+        // Handle file opening errors
+        printf("Error opening files\n");
+        return 1;
+    }
 
-	// parsing sbus packet
-	channel = parse_buffer(sbus_packet);
+    uint16_t *channel;
 
-	// get pwm range for Sabertooth 1			 
-	pwm = interpolation(channel[0]);		//  write								
-							//  to
-	// write data to Sabertooth 1			//  sabertooth	
-	write_to_SB(sabertooth, "%d", pwm);		
+    // Read data from RC transmitter using SBUS
+    read_SBUS(sbus_packet, 25, sbus);
 
-	// closing all serial port 
-	close_file(sbus);
-	close_file(sabertooth);
+    int pwm;
+
+    // Parse SBUS packet
+    channel = parse_buffer(sbus_packet);
+
+    // Get PWM range for Sabertooth 1
+    pwm = interpolation(channel[0]);
+
+    // Write data to Sabertooth 1
+    write_to_SB(sabertooth, pwm);
+
+    // Close the files
+    close_file(sbus);
+    close_file(sabertooth);
+
+    return 0;
+}
+
+// ...
+
+void read_SBUS(uint8_t *packet, uint8_t size, FILE *file) {
+    // Read the packet from the file
+    fread(packet, 1, size, file);
+}
+
+// ...
+
+void write_to_SB(FILE *file, int pwm) {
+    // Write the PWM value to the Sabertooth (You need to implement this function based on the Sabertooth protocol)
+    fprintf(file, "%d\n", pwm); // Assuming Sabertooth uses line-ending characters
 }
